@@ -175,7 +175,7 @@ const doSearch = debounce(() => {
   results = Catalog.searchProducts(q, { limit: 25 });
   $root.find('.search-results').removeClass('d-none').html(results.length ? results.map((p, i) => `
     <button class="list-row ${i === 0 ? 'bg-body-secondary' : ''}" data-i="${i}">
-      <div class="main"><div class="title">${esc(p.name)}</div><div class="sub">${esc([p.sku, p.barcode].filter(Boolean).join(' · '))}</div></div>
+      <div class="main"><div class="title">${esc(p.name)}</div><div class="sub">${esc([p.author, p.sku, p.barcode].filter(Boolean).join(' · '))}</div></div>
       <div class="end"><div class="fw-semibold money">${fmtNum(priceOf(p))}</div>${p.trackStock !== false ? `<div class="sub">stock ${fmtQty(p.stock)}</div>` : ''}</div>
     </button>`).join('') : `<div class="p-3 text-body-secondary small">No products match "${esc(q)}".${Auth.can('product.edit') ? ' <a href="#" class="quick-add-link">Add new product</a>' : ''}</div>`);
 }, 120);

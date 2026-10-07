@@ -1,10 +1,11 @@
 // Deployment configuration.
 export const CONFIG = {
-  APP_NAME: 'SaleAPP POS',
+  APP_NAME: 'Bookstore & Stationery POS',
   // Namespace for everything this app stores in the browser. All apps on designer-haxxan.github.io share
   // one origin (one IndexedDB / LocalStorage / Cache Storage), so every app must use its own unique APP_ID.
+  // Keep this value: changing it would hide the shop's existing data on every device.
   APP_ID: 'disterp',
-  APP_VERSION: '1.3.2',
+  APP_VERSION: '2.0.0',
   SCHEMA_VERSION: 1,
   BACKUP_VERSION: 1,
   // Login API: POST {AUTH_API_BASE}/login. The server does not send CORS headers, so the app must be

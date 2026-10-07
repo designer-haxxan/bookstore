@@ -17,6 +17,9 @@ const DEBIT_NORMAL = new Set(['cash', 'bank', 'asset', 'expense', 'customer']);
 export const isDebitNormal = (type) => DEBIT_NORMAL.has(type);
 
 export const partyAccount = (kind, id) => (kind === 'customers' ? 'C:' : 'S:') + id;
+
+// Product types for a bookstore & stationery shop. Stored on each product; older products count as 'other'.
+export const PRODUCT_KINDS = { book: 'Book', stationery: 'Stationery', other: 'Other' };
 export function parseAccount(accId) {
   if (accId?.startsWith('C:')) return { kind: 'customers', id: accId.slice(2), type: 'customer' };
   if (accId?.startsWith('S:')) return { kind: 'suppliers', id: accId.slice(2), type: 'supplier' };
@@ -575,7 +578,9 @@ export async function saveProduct(data) {
     if (data.id && !old) throw new AppError('Product not found.');
     const now = nowISO();
     const trackStock = data.trackStock !== false;
-    const p = { ...(old || { createdAt: now, stock: 0 }), id, name, nameLc: lc(name), sku, barcode, categoryId: data.categoryId || '', unit: clean(data.unit, 20) || 'pcs',
+    const kind = Object.hasOwn(PRODUCT_KINDS, data.kind) ? data.kind : 'other';
+    const p = { ...(old || { createdAt: now, stock: 0 }), id, name, nameLc: lc(name), sku, barcode, kind,
+      author: clean(data.author, 120), publisher: clean(data.publisher, 120), categoryId: data.categoryId || '', unit: clean(data.unit, 20) || 'pcs',
       purchasePrice, salePrice, wholesalePrice, minStock: round3(num(data.minStock)), openingStock: trackStock ? openingStock : 0, trackStock,
       image: data.image === undefined ? (old?.image || '') : data.image, active: data.active === false ? 0 : 1, updatedAt: now };
     const openRef = 'open:' + id;

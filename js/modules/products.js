@@ -8,7 +8,13 @@ import * as Posting from '../services/posting.js';
 import * as Scanner from '../scanner/scanner.js';
 
 const $ = window.jQuery;
-const UNITS = ['pcs', 'kg', 'g', 'ltr', 'ml', 'box', 'pack', 'dozen', 'm', 'ft', 'pair', 'set'];
+const UNITS = ['pcs', 'book', 'copy', 'pack', 'packet', 'dozen', 'box', 'ream', 'pad', 'roll', 'set', 'pair', 'm', 'ft', 'kg', 'g', 'ltr', 'ml'];
+// Starting categories for a bookstore & stationery shop. Only missing ones are added; the owner can rename or delete them.
+const SUGGESTED_CATEGORIES = [
+  'Fiction', 'Non-fiction', 'School textbooks', 'Children', 'Urdu books', 'Islamic books', 'Guides & assessment',
+  'Pens & pencils', 'Copies & notebooks', 'Paper & files', 'Art & craft', 'Office supplies', 'School bags & boxes', 'Gift items',
+];
+const kindBadge = (kind) => `<span class="kind-badge kind-${kind || 'other'}">${esc(Posting.PRODUCT_KINDS[kind] || Posting.PRODUCT_KINDS.other)}</span>`;
 
 // Internal EAN-13 barcode in the "in-store" 20-29 prefix range.
 function generateBarcode() {
@@ -22,16 +28,22 @@ function generateBarcode() {
 }
 
 export async function editProduct(product = null, prefill = {}) {
-  const p = { unit: 'pcs', trackStock: true, active: 1, ...prefill, ...(product || {}) };
+  // Legacy products (saved before types existed) start as 'other'; new products start as a book.
+  const p = { unit: 'pcs', trackStock: true, active: 1, kind: product ? 'other' : 'book', ...prefill, ...(product || {}) };
   let image = p.image || '';
   const cats = Catalog.allCategories();
   return UI.formModal({
     title: product ? 'Edit product' : 'New product', size: 'lg',
     body: `<div class="row g-2">
-      <div class="col-12"><label class="form-label">Product name *</label><input name="name" class="form-control" required maxlength="150" value="${esc(p.name)}"></div>
+      <div class="col-12"><div class="kind-picker" role="radiogroup" aria-label="Product type">
+        ${Object.entries(Posting.PRODUCT_KINDS).map(([k, label]) => `<label class="kind-option"><input type="radio" name="kind" value="${k}" ${p.kind === k ? 'checked' : ''}><span><i class="bi bi-${k === 'book' ? 'book' : k === 'stationery' ? 'pencil' : 'box-seam'}"></i>${label}</span></label>`).join('')}
+      </div></div>
+      <div class="col-12"><label class="form-label">Title / product name *</label><input name="name" class="form-control" required maxlength="150" value="${esc(p.name)}"></div>
+      <div class="col-6 col-md-4"><label class="form-label">Author</label><input name="author" class="form-control" maxlength="120" value="${esc(p.author)}"></div>
+      <div class="col-6 col-md-4"><label class="form-label">Publisher / brand</label><input name="publisher" class="form-control" maxlength="120" value="${esc(p.publisher)}"></div>
       <div class="col-6 col-md-4"><label class="form-label">SKU / code</label><input name="sku" class="form-control" value="${esc(p.sku)}"></div>
-      <div class="col-6 col-md-4"><label class="form-label">Barcode</label><div class="input-group">
-        <input name="barcode" class="form-control" value="${esc(p.barcode)}" inputmode="numeric">
+      <div class="col-6 col-md-4"><label class="form-label">Barcode / ISBN</label><div class="input-group">
+        <input name="barcode" class="form-control" value="${esc(p.barcode)}" inputmode="numeric" placeholder="ISBN-13 or EAN">
         <button type="button" class="btn btn-outline-secondary btn-scan-bc" title="Scan" aria-label="Scan barcode"><i class="bi bi-upc-scan"></i></button>
         <button type="button" class="btn btn-outline-secondary btn-gen-bc" title="Generate" aria-label="Generate barcode"><i class="bi bi-magic"></i></button></div></div>
       <div class="col-6 col-md-2"><label class="form-label">Category</label><select name="categoryId" class="form-select"><option value="">—</option>${UI.options(cats, p.categoryId)}</select></div>
@@ -81,8 +93,19 @@ async function manageCategories() {
       <button class="btn btn-sm btn-light btn-cat-edit" data-id="${esc(c.id)}" aria-label="Rename"><i class="bi bi-pencil"></i></button>
       <button class="btn btn-sm btn-light btn-cat-del" data-id="${esc(c.id)}" aria-label="Delete"><i class="bi bi-trash"></i></button></div>`;
   }).join('') || UI.emptyState('No categories yet', 'tags');
-  const m = UI.modal({ title: 'Categories', body: `<form class="input-group mb-3 cat-add"><input class="form-control" placeholder="New category name" required><button class="btn btn-primary">Add</button></form><div class="list-card cat-list">${render()}</div>` });
+  const m = UI.modal({ title: 'Categories', body: `<form class="input-group mb-2 cat-add"><input class="form-control" placeholder="New category name" required><button class="btn btn-primary">Add</button></form>
+    <button class="btn btn-outline-primary w-100 mb-3 btn-suggest"><i class="bi bi-magic me-1"></i>Add bookstore &amp; stationery suggestions</button>
+    <div class="list-card cat-list">${render()}</div>` });
   const refresh = () => m.$el.find('.cat-list').html(render());
+  m.$el.on('click', '.btn-suggest', async function () {
+    const have = new Set(Catalog.allCategories().map((c) => c.name.toLowerCase()));
+    const missing = SUGGESTED_CATEGORIES.filter((n) => !have.has(n.toLowerCase()));
+    if (!missing.length) return UI.toast('Suggested categories are already added');
+    try {
+      for (const name of missing) await Posting.saveCategory({ name });
+      refresh(); UI.toast(`${missing.length} categories added`);
+    } catch (err) { UI.toastError(err); }
+  });
   m.$el.find('.cat-add').on('submit', async (e) => {
     e.preventDefault();
     const $i = $(e.target).find('input');
@@ -106,6 +129,7 @@ async function renderList(el) {
   $el.html(UI.pageHeader('Products', canEdit ? `<button class="btn btn-light btn-sm btn-cats"><i class="bi bi-tags"></i><span class="d-none d-sm-inline"> Categories</span></button><button class="btn btn-primary btn-sm btn-add"><i class="bi bi-plus-lg"></i> Add</button>` : '') + `
     <div class="filters">
       <div class="input-group flex-grow-2"><input type="search" class="form-control q" placeholder="Search name, SKU, barcode…"><button class="btn btn-outline-secondary btn-scan" aria-label="Scan"><i class="bi bi-upc-scan"></i></button></div>
+      <select class="form-select f-kind"><option value="">All types</option>${Object.entries(Posting.PRODUCT_KINDS).map(([k, l]) => `<option value="${k}">${l}s</option>`).join('')}</select>
       <select class="form-select f-cat"><option value="">All categories</option>${UI.options(Catalog.allCategories(), '')}</select>
       <select class="form-select f-status"><option value="active">Active</option><option value="low">Low stock</option><option value="out">Out of stock</option><option value="inactive">Inactive</option><option value="all">All</option></select>
     </div>
@@ -115,7 +139,9 @@ async function renderList(el) {
     const q = $el.find('.q').val();
     const cat = $el.find('.f-cat').val() || null;
     const f = $el.find('.f-status').val();
+    const kind = $el.find('.f-kind').val();
     const list = Catalog.searchProducts(q, { limit: Infinity, categoryId: cat, includeInactive: true }).filter((p) => {
+      if (kind && (p.kind || 'other') !== kind) return false;
       if (f === 'all') return true;
       if (f === 'inactive') return !p.active;
       if (!p.active) return false;
@@ -128,8 +154,8 @@ async function renderList(el) {
       const low = p.trackStock !== false && p.stock <= (p.minStock || 0);
       return `<button class="list-row" data-id="${esc(p.id)}">
         ${p.image ? `<img class="thumb" src="${p.image}" alt="" loading="lazy">` : UI.avatar(p.name)}
-        <div class="main"><div class="title">${esc(p.name)} ${p.active ? '' : '<span class="badge text-bg-secondary">Inactive</span>'}</div>
-          <div class="sub">${esc([p.sku, p.barcode, Catalog.category(p.categoryId)?.name].filter(Boolean).join(' · ') || '—')}</div></div>
+        <div class="main"><div class="title">${esc(p.name)} ${kindBadge(p.kind)} ${p.active ? '' : '<span class="badge text-bg-secondary">Inactive</span>'}</div>
+          <div class="sub">${esc([p.author, p.publisher, p.sku, p.barcode, Catalog.category(p.categoryId)?.name].filter(Boolean).join(' · ') || '—')}</div></div>
         <div class="end"><div class="fw-semibold money">${money(p.salePrice)}</div>
           <div class="sub ${low ? 'text-danger fw-semibold' : ''}">${p.trackStock === false ? 'service' : `${fmtQty(p.stock)} ${esc(p.unit)}`}</div></div></button>`;
     }, 60, UI.emptyState('No products found', 'box-seam', canEdit ? '<button class="btn btn-primary btn-sm mt-3 btn-add">Add product</button>' : ''));
@@ -155,6 +181,8 @@ async function renderList(el) {
 async function productActions(p, redraw) {
   const m = UI.modal({ title: p.name, fullscreenMobile: false,
     body: `<div class="row small mb-3">
+        ${p.author || p.publisher ? `<div class="col-12 mb-2 text-body-secondary">${[p.author && `by <b class="text-body">${esc(p.author)}</b>`, p.publisher && esc(p.publisher)].filter(Boolean).join(' · ')}</div>` : ''}
+        <div class="col-6">Type: <b>${esc(Posting.PRODUCT_KINDS[p.kind] || 'Other')}</b></div><div class="col-6">${p.barcode ? `Barcode / ISBN: <b>${esc(p.barcode)}</b>` : ''}</div>
         <div class="col-6">Sale: <b>${money(p.salePrice)}</b></div><div class="col-6">Wholesale: <b>${money(p.wholesalePrice)}</b></div>
         <div class="col-6">Cost: <b>${money(p.purchasePrice)}</b></div><div class="col-6">Stock: <b>${p.trackStock === false ? 'n/a' : fmtQty(p.stock) + ' ' + esc(p.unit)}</b></div>
         <div class="col-6">Margin: <b>${p.salePrice ? fmtNum(((p.salePrice - p.purchasePrice) / p.salePrice) * 100) + '%' : '—'}</b></div><div class="col-6">Min stock: <b>${fmtQty(p.minStock || 0)}</b></div></div>

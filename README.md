@@ -1,13 +1,15 @@
-# SaleAPP POS
+# Bookstore & Stationery POS
 
-Offline-first, mobile-first Point of Sale as a static PWA (no build step).
+Offline-first, mobile-first point of sale for bookshops and stationery shops, as a static PWA (no build step).
 HTML5 · ES modules · jQuery · Bootstrap 5 · Bootstrap Icons · IndexedDB · Service Worker · eposwala login API.
 
 ## Features
 
 - **POS sales**: search, camera/hardware barcode scan, cart with qty/rate/discount, bill discount, tax, cash/bank/credit/partial payments, change calculation, hold/resume, edit, void, returns, receipt printing. The cart survives page refresh.
 - **Purchases**: suppliers, purchase rate, discount, paid/remaining, edit, void, returns. Can update product cost from the latest purchase.
-- **Products & categories**: SKU, barcode (scan or generate EAN-13), unit, purchase/sale/wholesale prices, opening/min stock, compressed images, services (no stock).
+- **Books & stationery catalogue**: each item is a *Book*, *Stationery* or *Other*. Books store author and publisher, and the barcode field takes the **ISBN-13** (scan it). Search finds titles by author or publisher. Units include book, copy, ream, pad, packet, dozen and roll.
+- **Categories**: add your own, or use *Add bookstore & stationery suggestions* to get starting categories (Fiction, School textbooks, Urdu books, Pens & pencils, Copies & notebooks, and so on). Existing categories are never changed.
+- **Products**: SKU, barcode (scan or generate EAN-13), unit, purchase/sale/wholesale prices, opening/min stock, compressed images, services (no stock).
 - **Customers & suppliers**: contact info, opening balance, ledger/statement (print), payments.
 - **Accounts / cash book**: cash, bank/wallet, income, expense, asset, liability accounts. Receipts, payments and transfers use double-entry ledger entries.
 - **Stock**: current stock, low/out-of-stock, stock ledger per product, adjustments (add/remove/set count) with void.
@@ -27,7 +29,7 @@ js/config.js            Login API base URL, support phone, app/schema/backup ver
 js/core/                utils, settings (LocalStorage), UI helpers, shared views
 js/db/                  IndexedDB wrapper (atomic multi-store transactions) + schema
 js/services/            auth, catalog (in-memory search index), posting engine, backup
-js/modules/             dashboard, pos (sale + purchase), documents, products, stock, parties, vouchers, accounts, settings, backup
+js/modules/             dashboard, pos (sale + purchase), documents, products (books & stationery), stock, parties, vouchers, accounts, settings, backup
 js/reports/             reports
 js/printer/             ESC/POS encoder, receipt builder, Bluetooth/RawBT/browser printing
 js/scanner/             camera scanning + keyboard-wedge scanner detection
@@ -37,7 +39,7 @@ js/scanner/             camera scanning + keyboard-wedge scanner detection
 
 | Where | What |
 |---|---|
-| IndexedDB `disterp_pos` | All business data: products, categories, customers, suppliers, accounts, sales + items, purchases + items, returns, vouchers, **ledger entries**, **stock moves**, adjustments, held sales, audit log, counters |
+| IndexedDB `disterp_pos` | All business data: products (with type, author, publisher), categories, customers, suppliers, accounts, sales + items, purchases + items, returns, vouchers, **ledger entries**, **stock moves**, adjustments, held sales, audit log, counters |
 | LocalStorage | Settings (business profile, tax, prefixes, printer, theme), device preferences, `disterp.session` (`{ token, expiresAt, username }`), `disterp.settings`, `disterp.pref.*`, `disterp.draft.*`, and the shared phone id `minipos.deviceId` |
 
 **Shared origin.** Every GitHub Pages site under `designer-haxxan.github.io` is the *same origin*, so all of them share one IndexedDB, LocalStorage and Cache Storage. This app therefore namespaces everything with `CONFIG.APP_ID` (`disterp`): database `disterp_pos`, keys `disterp.*`, caches `disterp-v*`. Its service worker deletes only its own caches, and rebuilds its cache if another app deleted it. The old shared database `saleapp_pos` (also used by AgriSale / pharmaSaleApp) is never modified. *Backup & Restore* offers to import it after showing its record counts. If you copy this app for another shop, **change `APP_ID`** in `js/config.js` and `service-worker.js`.
